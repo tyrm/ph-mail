@@ -57,9 +57,9 @@ func main() {
 	// Get the last 4 messages
 	from := uint32(1)
 	to := mbox.Messages
-	if mbox.Messages > 3 {
+	if mbox.Messages > 99 {
 		// We're using unsigned integers here, only substract if the result is > 0
-		from = mbox.Messages - 3
+		from = mbox.Messages - 99
 	}
 	envelopes, err := imap.GetEnvelopes(env.imap, mbox, from, to)
 
@@ -67,8 +67,8 @@ func main() {
 	for _, msg := range envelopes {
 		log.Printf("* %s", reflect.TypeOf(msg.To))
 		log.Printf("* %s", msg)
-		address, err := db.GetOrCreateAddress(env.db, msg.From[0])
-		log.Printf("Address: [%s] [%s]", address, err)
+		envelope, _ := db.GetOrCreateEnvelope(env.db, msg)
+		log.Printf("Address:\n [%s] [%s]", envelope, )
 	}
 
 	log.Println("Done!")

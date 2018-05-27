@@ -38,7 +38,11 @@ func GetClient(connectionString string) *gorm.DB {
 	gorm.DefaultTableNameHandler = func (db *gorm.DB, defaultTableName string) string  {
 		return "mail_" + defaultTableName;
 	}
+
 	db.AutoMigrate(&models.Address{}, &models.Envelope{})
+	// Create Index to Speed searching for addresses
+	db.Model(&models.Address{}).AddIndex("idx_user_name_age", "lower(host_name)", "lower(mailbox_name)")
+
 	log.Printf("Connected to %s database", dialect)
 
 	return db
@@ -46,7 +50,6 @@ func GetClient(connectionString string) *gorm.DB {
 
 func GetOrCreateAddress(dbClient *gorm.DB, imapAddress *imap.Address) (address models.Address, err error) {
 	dbErr := dbClient.Where("LOWER(mailbox_name)=LOWER(?) AND LOWER(host_name)=LOWER(?)", imapAddress.MailboxName, imapAddress.HostName).First(&address).Error
-	log.Printf("Error: %s", dbErr)
 	if dbErr != nil {
 		if dbErr == gorm.ErrRecordNotFound {
 			address.PersonalName = imapAddress.PersonalName
@@ -57,6 +60,83 @@ func GetOrCreateAddress(dbClient *gorm.DB, imapAddress *imap.Address) (address m
 			log.Println(address.AtDomainList)
 
 			dbClient.Create(&address)
+		} else {
+			err = dbErr
+		}
+	}
+
+	return
+}
+
+func GetOrCreateEnvelope(dbClient *gorm.DB, imapEnvelope *imap.Envelope) (envelope models.Envelope, err error) {
+	dbErr := dbClient.Preload("From").Preload("Sender").Preload("ReplyTo").
+		Preload("To").Preload("Cc").Preload("Bcc").Where("message_id=?", imapEnvelope.MessageId).First(&envelope).Error
+
+	log.Printf("Error: %s", dbErr)
+	if dbErr != nil {
+		if dbErr == gorm.ErrRecordNotFound {
+			envelope.Date      = imapEnvelope.Date
+			envelope.InReplyTo = imapEnvelope.InReplyTo
+			envelope.MessageId = imapEnvelope.MessageId
+			envelope.Subject   = imapEnvelope.Subject
+
+			for _, imapAddr := range imapEnvelope.From {
+				addr, dbErr := GetOrCreateAddress(dbClient, imapAddr)
+				if dbErr != nil {
+					err = dbErr
+					return
+				}
+				envelope.From = append(envelope.From, addr)
+			}
+
+			for _, imapAddr := range imapEnvelope.Sender {
+				addr, dbErr := GetOrCreateAddress(dbClient, imapAddr)
+				if dbErr != nil {
+					err = dbErr
+					return
+				}
+				envelope.Sender = append(envelope.Sender, addr)
+			}
+
+			for _, imapAddr := range imapEnvelope.ReplyTo {
+				addr, dbErr := GetOrCreateAddress(dbClient, imapAddr)
+				if dbErr != nil {
+					err = dbErr
+					return
+				}
+				envelope.ReplyTo = append(envelope.ReplyTo, addr)
+			}
+
+			for _, imapAddr := range imapEnvelope.To {
+				addr, dbErr := GetOrCreateAddress(dbClient, imapAddr)
+				if dbErr != nil {
+					err = dbErr
+					return
+				}
+				envelope.To = append(envelope.To, addr)
+			}
+
+			for _, imapAddr := range imapEnvelope.Cc {
+				addr, dbErr := GetOrCreateAddress(dbClient, imapAddr)
+				if dbErr != nil {
+					err = dbErr
+					return
+				}
+				envelope.Cc = append(envelope.Cc, addr)
+			}
+
+			for _, imapAddr := range imapEnvelope.Bcc {
+				addr, dbErr := GetOrCreateAddress(dbClient, imapAddr)
+				if dbErr != nil {
+					err = dbErr
+					return
+				}
+				envelope.Bcc = append(envelope.Bcc, addr)
+			}
+
+			log.Println(envelope)
+
+			dbClient.Create(&envelope)
 		} else {
 			err = dbErr
 		}

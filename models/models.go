@@ -15,28 +15,25 @@ type Address struct {
 	// The SMTP at-domain-list (source route).
 	AtDomainList string
 	// The mailbox name.
-	MailboxName string
+	MailboxName string `gorm:"size:64"`
 	// The host name.
-	HostName string
+	HostName string `gorm:"size:255"`
 }
 
 // A message.
 type Envelope struct {
-	MessageId string     `gorm:"primary_key"`
+	gorm.Model
 
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt *time.Time `sql:"index"`
-
+	MessageId string    `gorm:"unique;index;not null"`
 	Date      time.Time
 	Subject   string
 
-	From      []*Address `gorm:"many2many:mail_efroms"`
-	Sender    []*Address `gorm:"many2many:mail_esenders"`
-	ReplyTo   []*Address `gorm:"many2many:mail_ereplytos"`
-	To        []*Address `gorm:"many2many:mail_etos"`
-	Cc        []*Address `gorm:"many2many:mail_eccs"`
-	Bcc       []*Address `gorm:"many2many:mail_ebccs"`
+	From      []Address `gorm:"many2many:mail_efroms"`
+	Sender    []Address `gorm:"many2many:mail_esenders"`
+	ReplyTo   []Address `gorm:"many2many:mail_ereplytos"`
+	To        []Address `gorm:"many2many:mail_etos"`
+	Cc        []Address `gorm:"many2many:mail_eccs"`
+	Bcc       []Address `gorm:"many2many:mail_ebccs"`
 
-	InReplyTo *Envelope
+	InReplyTo string
 }
