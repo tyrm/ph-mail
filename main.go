@@ -18,8 +18,9 @@ func main() {
 	defer myEnv.IMAP.Logout()
 
 	// Connect DB
-	myEnv.DB = models.GetClient(myEnv.Config.DBEngine)
-	defer myEnv.DB.Close()
+	//myEnv.DB = models.GetClient(myEnv.Config.DBEngine)
+	models.InitDB(myEnv.Config.DBEngine)
+	defer models.CloseDB()
 
 	// Get All Mail Mailbox
 	mbox, err := imap.GetMailbox(myEnv.IMAP, "[Gmail]/All Mail")
@@ -36,7 +37,7 @@ func main() {
 
 		log.Printf("Last %d messages:", 1 + i - int64(from))
 		for _, msg := range envelopes {
-			models.GetOrCreateEnvelope(myEnv.DB, msg)
+			models.GetOrCreateEnvelope(msg)
 			//log.Printf(" Envelope:\n [%T] [%s]", envelope, envelope)
 		}
 	}

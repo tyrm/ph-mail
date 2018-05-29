@@ -25,8 +25,8 @@ type Envelope struct {
 	InReplyTo string
 }
 
-func GetOrCreateEnvelope(dbClient *gorm.DB, imapEnvelope *imap.Envelope) (envelope Envelope, err error) {
-	dbErr := dbClient.Preload("From").Preload("Sender").Preload("ReplyTo").
+func GetOrCreateEnvelope(imapEnvelope *imap.Envelope) (envelope Envelope, err error) {
+	dbErr := db.Preload("From").Preload("Sender").Preload("ReplyTo").
 		Preload("To").Preload("Cc").Preload("Bcc").Where("message_id=?", imapEnvelope.MessageId).First(&envelope).Error
 
 	if dbErr != nil {
@@ -37,7 +37,7 @@ func GetOrCreateEnvelope(dbClient *gorm.DB, imapEnvelope *imap.Envelope) (envelo
 			envelope.Subject   = imapEnvelope.Subject
 
 			for _, imapAddr := range imapEnvelope.From {
-				addr, dbErr := GetOrCreateAddress(dbClient, imapAddr)
+				addr, dbErr := GetOrCreateAddress(imapAddr)
 				if dbErr != nil {
 					err = dbErr
 					return
@@ -46,7 +46,7 @@ func GetOrCreateEnvelope(dbClient *gorm.DB, imapEnvelope *imap.Envelope) (envelo
 			}
 
 			for _, imapAddr := range imapEnvelope.Sender {
-				addr, dbErr := GetOrCreateAddress(dbClient, imapAddr)
+				addr, dbErr := GetOrCreateAddress(imapAddr)
 				if dbErr != nil {
 					err = dbErr
 					return
@@ -55,7 +55,7 @@ func GetOrCreateEnvelope(dbClient *gorm.DB, imapEnvelope *imap.Envelope) (envelo
 			}
 
 			for _, imapAddr := range imapEnvelope.ReplyTo {
-				addr, dbErr := GetOrCreateAddress(dbClient, imapAddr)
+				addr, dbErr := GetOrCreateAddress(imapAddr)
 				if dbErr != nil {
 					err = dbErr
 					return
@@ -64,7 +64,7 @@ func GetOrCreateEnvelope(dbClient *gorm.DB, imapEnvelope *imap.Envelope) (envelo
 			}
 
 			for _, imapAddr := range imapEnvelope.To {
-				addr, dbErr := GetOrCreateAddress(dbClient, imapAddr)
+				addr, dbErr := GetOrCreateAddress(imapAddr)
 				if dbErr != nil {
 					err = dbErr
 					return
@@ -73,7 +73,7 @@ func GetOrCreateEnvelope(dbClient *gorm.DB, imapEnvelope *imap.Envelope) (envelo
 			}
 
 			for _, imapAddr := range imapEnvelope.Cc {
-				addr, dbErr := GetOrCreateAddress(dbClient, imapAddr)
+				addr, dbErr := GetOrCreateAddress(imapAddr)
 				if dbErr != nil {
 					err = dbErr
 					return
@@ -82,7 +82,7 @@ func GetOrCreateEnvelope(dbClient *gorm.DB, imapEnvelope *imap.Envelope) (envelo
 			}
 
 			for _, imapAddr := range imapEnvelope.Bcc {
-				addr, dbErr := GetOrCreateAddress(dbClient, imapAddr)
+				addr, dbErr := GetOrCreateAddress(imapAddr)
 				if dbErr != nil {
 					err = dbErr
 					return
@@ -90,7 +90,7 @@ func GetOrCreateEnvelope(dbClient *gorm.DB, imapEnvelope *imap.Envelope) (envelo
 				envelope.Bcc = append(envelope.Bcc, addr)
 			}
 
-			dbClient.Create(&envelope)
+			db.Create(&envelope)
 		} else {
 			err = dbErr
 		}

@@ -10,6 +10,14 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 )
 
+var db *gorm.DB
+
+func CloseDB() {
+	db.Close()
+
+	return
+}
+
 func DecodeEngine(engine string) (dialect string, args string) {
 	pgRe, err := regexp.Compile(`postgresql://([\w]*):([\w\-.~:/?#\[\]!$&'()*+,;=]*)@([\w.]*)/([\w]*)`)
 	if err != nil {
@@ -28,9 +36,10 @@ func DecodeEngine(engine string) (dialect string, args string) {
 	return
 }
 
-func GetClient(connectionString string) *gorm.DB {
+func InitDB(connectionString string) {
+	var err error
 	dialect, dbArgs := DecodeEngine(connectionString)
-	db, err := gorm.Open(dialect, dbArgs)
+	db, err = gorm.Open(dialect, dbArgs)
 	util.PanicOnError(err, "Coud not connect to database")
 
 	gorm.DefaultTableNameHandler = func (db *gorm.DB, defaultTableName string) string  {
@@ -39,9 +48,10 @@ func GetClient(connectionString string) *gorm.DB {
 
 	db.AutoMigrate(&Address{}, &Envelope{})
 	// Create Index to Speed searching for addresses
-	db.Model(&Address{}).AddIndex("idx_user_name_age", "lower(host_name)", "lower(mailbox_name)")
+	db.Model(&Address{}).AddIndex("idx_host_name_mailbox_name", "lower(host_name)", "lower(mailbox_name)", "deleted_at")
+	db.Model(&Envelope{}).AddIndex("idx_message_id", "message_id", "deleted_at")
 
 	log.Printf("Connected to %s database", dialect)
 
-	return db
+	return
 }

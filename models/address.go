@@ -19,8 +19,8 @@ type Address struct {
 	HostName string
 }
 
-func GetOrCreateAddress(dbClient *gorm.DB, imapAddress *imap.Address) (address Address, err error) {
-	dbErr := dbClient.Where("LOWER(mailbox_name)=LOWER(?) AND LOWER(host_name)=LOWER(?)", imapAddress.MailboxName, imapAddress.HostName).First(&address).Error
+func GetOrCreateAddress(imapAddress *imap.Address) (address Address, err error) {
+	dbErr := db.Where("LOWER(mailbox_name)=LOWER(?) AND LOWER(host_name)=LOWER(?)", imapAddress.MailboxName, imapAddress.HostName).First(&address).Error
 	if dbErr != nil {
 		if dbErr == gorm.ErrRecordNotFound {
 			address.PersonalName = imapAddress.PersonalName
@@ -28,7 +28,7 @@ func GetOrCreateAddress(dbClient *gorm.DB, imapAddress *imap.Address) (address A
 			address.MailboxName  = imapAddress.MailboxName
 			address.HostName     = imapAddress.HostName
 
-			dbClient.Create(&address)
+			db.Create(&address)
 		} else {
 			err = dbErr
 		}
