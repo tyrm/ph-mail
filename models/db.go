@@ -5,9 +5,9 @@ import (
 	"log"
 	"regexp"
 
-	"../util"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
+	"github.com/juju/loggo"
 )
 
 var db *gorm.DB
@@ -37,10 +37,15 @@ func DecodeEngine(engine string) (dialect string, args string) {
 }
 
 func InitDB(connectionString string) {
+	logger := loggo.GetLogger("mail.models")
+
 	var err error
 	dialect, dbArgs := DecodeEngine(connectionString)
 	db, err = gorm.Open(dialect, dbArgs)
-	util.PanicOnError(err, "Coud not connect to database")
+	if err != nil {
+		log.Fatalf("%s: %s", "Coud not connect to database", err)
+		panic(fmt.Sprintf("%s: %s", "Coud not connect to database", err))
+	}
 
 	gorm.DefaultTableNameHandler = func (db *gorm.DB, defaultTableName string) string  {
 		return "mail_" + defaultTableName;
@@ -51,7 +56,7 @@ func InitDB(connectionString string) {
 	db.Model(&Address{}).AddIndex("idx_host_name_mailbox_name", "lower(host_name)", "lower(mailbox_name)", "deleted_at")
 	db.Model(&Envelope{}).AddIndex("idx_message_id", "message_id", "deleted_at")
 
-	log.Printf("Connected to %s database", dialect)
+	logger.Infof("Connected to %s database", dialect)
 
 	return
 }

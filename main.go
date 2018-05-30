@@ -3,37 +3,41 @@ package main
 import (
 	"log"
 
-	"./env"
 	"./imap"
 	"./models"
 	"./util"
+	"github.com/juju/loggo"
 )
 
 func main() {
-	var myEnv env.Env
-	myEnv.Config = env.CollectConfig()
+	loggo.ConfigureLoggers("<root>=INFO")
+
+	logger := loggo.GetLogger("mail")
+
+	config := CollectConfig()
 
 	// Connect IMAP
-	myEnv.IMAP = imap.GetClient(myEnv.Config.MailIMAPServer, myEnv.Config.MailUsername, myEnv.Config.MailPassword)
-	defer myEnv.IMAP.Logout()
+	imapCon := imap.GetClient(config.MailIMAPServer, config.MailUsername, config.MailPassword)
+	defer imapCon.Logout()
 
 	// Connect DB
 	//myEnv.DB = models.GetClient(myEnv.Config.DBEngine)
-	models.InitDB(myEnv.Config.DBEngine)
+	models.InitDB(config.DBEngine)
 	defer models.CloseDB()
 
 	// Get All Mail Mailbox
-	mbox, err := imap.GetMailbox(myEnv.IMAP, "[Gmail]/All Mail")
+	mbox, err := imap.GetMailbox(imapCon, "[Gmail]/All Mail")
 	util.PanicOnError(err, "Could not login to imap server")
 
 	var cursor int64 = int64(mbox.Messages)
-	log.Printf("Messages: %d (%d)", cursor, mbox.Messages)
+	logger.Infof("Messages: %d (%d)", cursor, mbox.Messages)
+	//log.Printf("Messages: %d (%d)", cursor, mbox.Messages)
 	for i := cursor; i > 0; i = i - 100 {
 		from := uint32(1)
 		if i > 99 {from = uint32(i - 99)}
 
 		log.Printf("Range: %d-%d (%d)", i, from, 1 + i - int64(from))
-		envelopes, _ := imap.GetEnvelopes(myEnv.IMAP, mbox, from, uint32(i))
+		envelopes, _ := imap.GetEnvelopes(imapCon, mbox, from, uint32(i))
 
 		log.Printf("Last %d messages:", 1 + i - int64(from))
 		for _, msg := range envelopes {

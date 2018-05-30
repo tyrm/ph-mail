@@ -1,4 +1,4 @@
-package env
+package main
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"os"
 	"regexp"
 
-	"../util"
+	"./util"
 )
 
 type Config struct {

@@ -9,6 +9,8 @@ import (
 	"github.com/emersion/go-imap/client"
 )
 
+var imapClient *client.Client
+
 func GetClient(address string, username string, password string)  *client.Client {
 	imapClient, err := client.DialTLS(address, nil)
 	util.PanicOnError(err, "Could not connect to imap server")
