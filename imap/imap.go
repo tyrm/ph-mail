@@ -1,24 +1,31 @@
 package imap
 
 import (
-	"log"
-
-	"../util"
+	"github.com/juju/loggo"
 
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
 )
 
-var imapClient *client.Client
+var logger *loggo.Logger
 
 func GetClient(address string, username string, password string)  *client.Client {
+	newLogger :=  loggo.GetLogger("mail.imap")
+	logger = &newLogger
+
 	imapClient, err := client.DialTLS(address, nil)
-	util.PanicOnError(err, "Could not connect to imap server")
+	if err != nil {
+		logger.Criticalf("Could not connect to imap server: %s", err)
+		panic("PANIC!")
+	}
 
 	err = imapClient.Login(username, password)
-	util.PanicOnError(err, "Could not login to imap server")
+	if err != nil {
+		logger.Criticalf("Could not login to imap server: %s", err)
+		panic("PANIC!")
+	}
 
-	log.Printf("Connected to IMAP server [%s] as [%s]", address, username)
+	logger.Infof("Connected to IMAP server [%s] as [%s]", address, username)
 	return imapClient
 }
 
@@ -53,7 +60,7 @@ func GetMailboxes(imapClient *client.Client) (mailboxes []*imap.MailboxInfo, err
 	}
 
 	if err := <-done; err != nil {
-		log.Printf("Error geting mailboxes: %v", err)
+		logger.Errorf("Error geting mailboxes: %v", err)
 	}
 
 	return
@@ -62,7 +69,7 @@ func GetMailboxes(imapClient *client.Client) (mailboxes []*imap.MailboxInfo, err
 func GetMailbox(imapClient *client.Client, mailboxName string) (mailbox *imap.MailboxStatus, err error) {
 	mailbox, err = imapClient.Select(mailboxName, false)
 	if err != nil {
-		log.Fatal(err)
+		logger.Errorf("Error getting mailbox: %s", err)
 	}
 
 	return

@@ -1,18 +1,17 @@
 package main
 
 import (
-	"log"
-
 	"./imap"
 	"./models"
-	"./util"
 	"github.com/juju/loggo"
 )
 
-func main() {
-	loggo.ConfigureLoggers("<root>=INFO")
+var logger *loggo.Logger
 
-	logger := loggo.GetLogger("mail")
+func main() {
+	loggo.ConfigureLoggers("<root>=DEBUG")
+	newLogger :=  loggo.GetLogger("mail")
+	logger = &newLogger
 
 	config := CollectConfig()
 
@@ -27,7 +26,10 @@ func main() {
 
 	// Get All Mail Mailbox
 	mbox, err := imap.GetMailbox(imapCon, "[Gmail]/All Mail")
-	util.PanicOnError(err, "Could not login to imap server")
+	if err != nil {
+		logger.Criticalf("Could not login to imap server: %s", err)
+		panic("PANIC!")
+	}
 
 	var cursor int64 = int64(mbox.Messages)
 	logger.Infof("Messages: %d (%d)", cursor, mbox.Messages)
@@ -36,10 +38,10 @@ func main() {
 		from := uint32(1)
 		if i > 99 {from = uint32(i - 99)}
 
-		log.Printf("Range: %d-%d (%d)", i, from, 1 + i - int64(from))
+		logger.Debugf("Range: %d-%d (%d)", i, from, 1 + i - int64(from))
 		envelopes, _ := imap.GetEnvelopes(imapCon, mbox, from, uint32(i))
 
-		log.Printf("Last %d messages:", 1 + i - int64(from))
+		logger.Debugf("Last %d messages:", 1 + i - int64(from))
 		for _, msg := range envelopes {
 			models.GetOrCreateEnvelope(msg)
 			//log.Printf(" Envelope:\n [%T] [%s]", envelope, envelope)
@@ -79,6 +81,6 @@ func main() {
 		log.Printf("Address:\n [%s] [%s]", envelope, )
 	}*/
 
-	log.Println("Done!")
+	logger.Infof("Done!")
 }
 

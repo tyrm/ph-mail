@@ -2,7 +2,6 @@ package models
 
 import (
 	"fmt"
-	"log"
 	"regexp"
 
 	"github.com/jinzhu/gorm"
@@ -11,6 +10,7 @@ import (
 )
 
 var db *gorm.DB
+var logger *loggo.Logger
 
 func CloseDB() {
 	db.Close()
@@ -21,8 +21,8 @@ func CloseDB() {
 func DecodeEngine(engine string) (dialect string, args string) {
 	pgRe, err := regexp.Compile(`postgresql://([\w]*):([\w\-.~:/?#\[\]!$&'()*+,;=]*)@([\w.]*)/([\w]*)`)
 	if err != nil {
-		log.Fatalf("Regex compile error: %s", err)
-		panic(fmt.Sprintf("Regex compile error: %s", err))
+		logger.Criticalf("Regex compile error: %s", err)
+		panic("PANIC!")
 	}
 
 	if pgRe.MatchString(engine) {
@@ -30,21 +30,23 @@ func DecodeEngine(engine string) (dialect string, args string) {
 		match := pgRe.FindStringSubmatch(engine)
 		args = fmt.Sprintf("host=%s user=%s dbname=%s password=%s", match[3], match[1], match[4], match[2])
 	} else {
-		panic(fmt.Sprint("Could not parse DB_ENGINE"))
+		logger.Criticalf("Could not parse DB_ENGINE: %s", err)
+		panic("PANIC!")
 	}
 
 	return
 }
 
 func InitDB(connectionString string) {
-	logger := loggo.GetLogger("mail.models")
+	newLogger :=  loggo.GetLogger("mail.models")
+	logger = &newLogger
 
 	var err error
 	dialect, dbArgs := DecodeEngine(connectionString)
 	db, err = gorm.Open(dialect, dbArgs)
 	if err != nil {
-		log.Fatalf("%s: %s", "Coud not connect to database", err)
-		panic(fmt.Sprintf("%s: %s", "Coud not connect to database", err))
+		logger.Criticalf("Coud not connect to database: %s", err)
+		panic("PANIC!")
 	}
 
 	gorm.DefaultTableNameHandler = func (db *gorm.DB, defaultTableName string) string  {

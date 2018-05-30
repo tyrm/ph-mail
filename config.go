@@ -2,11 +2,8 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"regexp"
-
-	"./util"
 )
 
 type Config struct {
@@ -47,7 +44,7 @@ func CollectConfig() (config Config) {
 	// Validation
 	if len(missingEnv) > 0 {
 		var msg string = fmt.Sprintf("Environment variables missing: %v", missingEnv)
-		log.Fatal(msg)
+		logger.Criticalf(msg)
 		panic(fmt.Sprint(msg))
 	}
 
@@ -56,7 +53,10 @@ func CollectConfig() (config Config) {
 
 func DecodeEngine(engine string) (dialect string, args string) {
 	pgRe, err := regexp.Compile(`postgresql://([\w]*):([\w\-.~:/?#\[\]!$&'()*+,;=]*)@([\w.]*)/([\w]*)`)
-	util.PanicOnError(err, "Regex compile error")
+	if err != nil {
+		logger.Criticalf("Regex compile error: %s", err)
+		panic("PANIC!")
+	}
 
 	if pgRe.MatchString(engine) {
 		dialect = "postgres"
