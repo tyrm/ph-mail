@@ -25,6 +25,51 @@ type Envelope struct {
 	InReplyTo string
 }
 
+const ESDocEnvelope = `{
+    "settings": {
+        "index": {
+            "number_of_shards": "1",
+            "number_of_replicas": "0"
+        }
+    },
+    "mappings": {
+        "doc": {
+            "properties": {
+                "bcc": {
+                    "type": "text"
+                },
+                "cc": {
+                    "type": "text"
+                },
+                "from": {
+                    "type": "text"
+                },
+                "in_reply_to": {
+                    "type": "text"
+                },
+                "message_id": {
+                    "type": "text"
+                },
+                "received": {
+                    "type": "date"
+                },
+                "reply_to": {
+                    "type": "text"
+                },
+                "sender": {
+                    "type": "text"
+                },
+                "subject": {
+                    "type": "text"
+                },
+                "to": {
+                    "type": "text"
+                }
+            }
+        }
+    }
+}`
+
 func GetOrCreateEnvelope(imapEnvelope *imap.Envelope) (envelope Envelope, err error) {
 	dbErr := db.Preload("From").Preload("Sender").Preload("ReplyTo").
 		Preload("To").Preload("Cc").Preload("Bcc").Where("message_id=?", imapEnvelope.MessageId).First(&envelope).Error

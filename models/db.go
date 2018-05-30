@@ -7,13 +7,17 @@ import (
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/juju/loggo"
+	"github.com/olivere/elastic"
+	"golang.org/x/net/context"
 )
 
 var db *gorm.DB
+var es *elastic.Client
 var logger *loggo.Logger
 
 func CloseDB() {
 	db.Close()
+	es.Stop()
 
 	return
 }
@@ -37,7 +41,7 @@ func DecodeEngine(engine string) (dialect string, args string) {
 	return
 }
 
-func InitDB(connectionString string) {
+func InitDB(connectionString string, esHost string) {
 	newLogger :=  loggo.GetLogger("mail.models")
 	logger = &newLogger
 
@@ -46,7 +50,7 @@ func InitDB(connectionString string) {
 	db, err = gorm.Open(dialect, dbArgs)
 	if err != nil {
 		logger.Criticalf("Coud not connect to database: %s", err)
-		panic("PANIC!")
+		panic(err)
 	}
 
 	gorm.DefaultTableNameHandler = func (db *gorm.DB, defaultTableName string) string  {
@@ -59,6 +63,28 @@ func InitDB(connectionString string) {
 	db.Model(&Envelope{}).AddIndex("idx_message_id", "message_id", "deleted_at")
 
 	logger.Infof("Connected to %s database", dialect)
+
+	logger.Debugf("Trying to connecto to ElasticSearch: %s", esHost)
+	es, err = elastic.NewClient(elastic.SetURL("http://10.1.68.60:9200"),  elastic.SetSniff(false))
+	if err != nil {
+		logger.Criticalf("Coud not connect ElasticSearch cluster: %s", err)
+		panic(err)
+	}
+
+	// Check if the index called "mail_envelope" exists
+	exists, err := es.IndexExists("mail_envelope").Do(context.Background())
+	if err != nil {logger.Errorf("Error checking for: %s", err)}
+	if !exists {
+		logger.Infof("Creating index 'mail_envelope'")
+		createIndex, err := es.CreateIndex("mail_envelope").BodyString(ESDocEnvelope).Do(context.Background())
+		if err != nil {
+			logger.Errorf("Coud not create index 'mail_envelope': %s", err)
+			panic(err)
+		}
+		if !createIndex.Acknowledged {
+			logger.Warningf("Creation of index 'mail_envelope' was unacknowledged")
+		}
+	}
 
 	return
 }

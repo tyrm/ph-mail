@@ -7,17 +7,19 @@ import (
 	"github.com/emersion/go-imap/client"
 )
 
+var imapClient *client.Client
 var logger *loggo.Logger
 
-func GetClient(address string, username string, password string)  *client.Client {
+func GetClient(address string, username string, password string) {
 	newLogger :=  loggo.GetLogger("mail.imap")
 	logger = &newLogger
 
-	imapClient, err := client.DialTLS(address, nil)
+	newImapClient, err := client.DialTLS(address, nil)
 	if err != nil {
 		logger.Criticalf("Could not connect to imap server: %s", err)
 		panic("PANIC!")
 	}
+	imapClient = newImapClient
 
 	err = imapClient.Login(username, password)
 	if err != nil {
@@ -26,17 +28,19 @@ func GetClient(address string, username string, password string)  *client.Client
 	}
 
 	logger.Infof("Connected to IMAP server [%s] as [%s]", address, username)
-	return imapClient
+	return
 }
 
-func GetEnvelopes(imapClient *client.Client, mbox *imap.MailboxStatus, from uint32, to uint32) (envelopes []*imap.Envelope, err error) {
+func GetEnvelopes(mbox *imap.MailboxStatus, from uint32, to uint32) (envelopes []*imap.Envelope, err error) {
+	client := imapClient
+
 	seqset := new(imap.SeqSet)
 	seqset.AddRange(from, to)
 
 	messageChannel := make(chan *imap.Message, 10)
 	done := make(chan error, 1)
 	go func() {
-		done <- imapClient.Fetch(seqset, []imap.FetchItem{imap.FetchEnvelope}, messageChannel)
+		done <- client.Fetch(seqset, []imap.FetchItem{imap.FetchEnvelope}, messageChannel)
 	}()
 
 	for msg := range messageChannel {
@@ -47,12 +51,14 @@ func GetEnvelopes(imapClient *client.Client, mbox *imap.MailboxStatus, from uint
 	return
 }
 
-func GetMailboxes(imapClient *client.Client) (mailboxes []*imap.MailboxInfo, err error) {
+func GetMailboxes() (mailboxes []*imap.MailboxInfo, err error) {
+	client := imapClient
+
 	// List mailboxes
 	mailboxChan := make(chan *imap.MailboxInfo, 10)
 	done := make(chan error, 1)
 	go func () {
-		done <- imapClient.List("", "*", mailboxChan)
+		done <- client.List("", "*", mailboxChan)
 	}()
 
 	for m := range mailboxChan {
@@ -66,8 +72,9 @@ func GetMailboxes(imapClient *client.Client) (mailboxes []*imap.MailboxInfo, err
 	return
 }
 
-func GetMailbox(imapClient *client.Client, mailboxName string) (mailbox *imap.MailboxStatus, err error) {
-	mailbox, err = imapClient.Select(mailboxName, false)
+func GetMailbox(mailboxName string) (mailbox *imap.MailboxStatus, err error) {
+	client := imapClient
+	mailbox, err = client.Select(mailboxName, false)
 	if err != nil {
 		logger.Errorf("Error getting mailbox: %s", err)
 	}

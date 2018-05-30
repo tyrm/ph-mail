@@ -16,16 +16,17 @@ func main() {
 	config := CollectConfig()
 
 	// Connect IMAP
-	imapCon := imap.GetClient(config.MailIMAPServer, config.MailUsername, config.MailPassword)
-	defer imapCon.Logout()
+	//imapCon := imap.GetClient(config.MailIMAPServer, config.MailUsername, config.MailPassword)
+	imap.GetClient(config.MailIMAPServer, config.MailUsername, config.MailPassword)
+	//defer imapCon.Logout()
 
 	// Connect DB
 	//myEnv.DB = models.GetClient(myEnv.Config.DBEngine)
-	models.InitDB(config.DBEngine)
+	models.InitDB(config.DBEngine, config.ESHost)
 	defer models.CloseDB()
 
 	// Get All Mail Mailbox
-	mbox, err := imap.GetMailbox(imapCon, "[Gmail]/All Mail")
+	mbox, err := imap.GetMailbox("[Gmail]/All Mail")
 	if err != nil {
 		logger.Criticalf("Could not login to imap server: %s", err)
 		panic("PANIC!")
@@ -39,7 +40,7 @@ func main() {
 		if i > 99 {from = uint32(i - 99)}
 
 		logger.Debugf("Range: %d-%d (%d)", i, from, 1 + i - int64(from))
-		envelopes, _ := imap.GetEnvelopes(imapCon, mbox, from, uint32(i))
+		envelopes, _ := imap.GetEnvelopes(mbox, from, uint32(i))
 
 		logger.Debugf("Last %d messages:", 1 + i - int64(from))
 		for _, msg := range envelopes {

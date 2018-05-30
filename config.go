@@ -9,6 +9,10 @@ import (
 type Config struct {
 	DBEngine       string
 
+	ESHost         string
+	ESUsername     string
+	ESPassword     string
+
 	MailUsername   string
 	MailPassword   string
 	MailIMAPServer string
@@ -22,6 +26,18 @@ func CollectConfig() (config Config) {
 	if config.DBEngine == "" {
 		missingEnv = append(missingEnv, "DB_ENGINE")
 	}
+
+	// ES_HOST
+	config.ESHost = os.Getenv("ES_HOST")
+	if config.ESHost == "" {
+		missingEnv = append(missingEnv, "ES_HOST")
+	}
+
+	// ES_USERNAME
+	config.ESUsername = os.Getenv("ES_USERNAME")
+
+	// ES_PASSWORD
+	config.ESPassword = os.Getenv("ES_PASSWORD")
 
 	// MAIL_USERNAME
 	config.MailUsername = os.Getenv("MAIL_USERNAME")
