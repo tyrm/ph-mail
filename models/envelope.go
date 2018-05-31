@@ -1,10 +1,13 @@
 package models
 
 import (
+	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/emersion/go-imap"
 	"github.com/jinzhu/gorm"
+	"golang.org/x/net/context"
 )
 
 // A message.
@@ -12,6 +15,7 @@ type Envelope struct {
 	gorm.Model
 
 	MessageId string    `gorm:"unique;index;not null"`
+	InReplyTo string
 	Date      time.Time
 	Subject   string
 
@@ -21,8 +25,20 @@ type Envelope struct {
 	To        []Address `gorm:"many2many:mail_etos"`
 	Cc        []Address `gorm:"many2many:mail_eccs"`
 	Bcc       []Address `gorm:"many2many:mail_ebccs"`
+}
 
-	InReplyTo string
+type esEnvelope struct {
+	MessageId string    `json:"message_id"`
+	InReplyTo string    `json:"in_reply_to,omitempty"`
+	Date      time.Time `json:"received"`
+	Subject   string    `json:"subject"`
+
+	From      []string  `json:"from,omitempty"`
+	Sender    []string  `json:"sender,omitempty"`
+	ReplyTo   []string  `json:"reply_to,omitempty"`
+	To        []string  `json:"to,omitempty"`
+	Cc        []string  `json:"cc,omitempty"`
+	Bcc       []string  `json:"bcc,omitempty"`
 }
 
 const ESDocEnvelope = `{
@@ -136,10 +152,52 @@ func GetOrCreateEnvelope(imapEnvelope *imap.Envelope) (envelope Envelope, err er
 			}
 
 			db.Create(&envelope)
+
+			PutEnvelopeInSearch(&envelope)
 		} else {
 			err = dbErr
 		}
 	}
+
+	return
+}
+
+func PutEnvelopeInSearch(e *Envelope) (err error) {
+	newDoc := esEnvelope{MessageId: e.MessageId, InReplyTo: e.InReplyTo, Date: e.Date, Subject: e.Subject}
+
+	for _, from := range e.From {
+		newDoc.From = append(newDoc.From, fmt.Sprintf("\"%s\" <%s@%s>", from.PersonalName, from.MailboxName, from.HostName))
+	}
+	for _, sender := range e.Sender {
+		newDoc.Sender = append(newDoc.Sender, fmt.Sprintf("\"%s\" <%s@%s>", sender.PersonalName, sender.MailboxName, sender.HostName))
+	}
+	for _, replyTo := range e.ReplyTo {
+		newDoc.ReplyTo = append(newDoc.ReplyTo, fmt.Sprintf("\"%s\" <%s@%s>", replyTo.PersonalName, replyTo.MailboxName, replyTo.HostName))
+	}
+	for _, to := range e.To {
+		newDoc.To = append(newDoc.To, fmt.Sprintf("\"%s\" <%s@%s>", to.PersonalName, to.MailboxName, to.HostName))
+	}
+	for _, cc := range e.Cc {
+		newDoc.Cc = append(newDoc.Cc, fmt.Sprintf("\"%s\" <%s@%s>", cc.PersonalName, cc.MailboxName, cc.HostName))
+	}
+	for _, bcc := range e.Bcc {
+		newDoc.Bcc = append(newDoc.Bcc, fmt.Sprintf("\"%s\" <%s@%s>", bcc.PersonalName, bcc.MailboxName, bcc.HostName))
+	}
+
+	put, err := es.Index().
+		Index("mail_envelope").
+		Type("doc").
+		Id(strconv.Itoa(int(e.ID))).
+		BodyJson(newDoc).
+		Do(context.Background())
+	if err != nil {
+		logger.Errorf("Coud not create index 'mail_envelope': %s", err)
+		return
+	}
+	logger.Debugf("Indexed envelope %s to index %s, type %s\n", put.Id, put.Index, put.Type)
+	logger.Debugf("  Subject: %s\n", newDoc.Subject)
+	logger.Debugf("  From: %s, Sender: %s, ReplyTo: %s\n", newDoc.From, newDoc.Sender, newDoc.ReplyTo)
+	logger.Debugf("  To: %s, Cc: %s, Bcc: %s\n", newDoc.To, newDoc.Cc, newDoc.Bcc)
 
 	return
 }

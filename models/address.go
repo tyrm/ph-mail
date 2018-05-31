@@ -19,6 +19,32 @@ type Address struct {
 	HostName string
 }
 
+type esAddress struct {
+	PersonalName string `json:"personal_name,omitempty"`
+	Address string      `json:"address,omitempty"`
+}
+
+const ESDocAddress = `{
+    "settings": {
+        "index": {
+            "number_of_shards": "1",
+            "number_of_replicas": "0"
+        }
+    },
+    "mappings": {
+        "doc": {
+            "properties": {
+                "personal_name": {
+                    "type": "text"
+                },
+                "address": {
+                    "type": "text"
+                }
+            }
+        }
+    }
+}`
+
 func GetOrCreateAddress(imapAddress *imap.Address) (address Address, err error) {
 	dbErr := db.Where("LOWER(mailbox_name)=LOWER(?) AND LOWER(host_name)=LOWER(?)", imapAddress.MailboxName, imapAddress.HostName).First(&address).Error
 	if dbErr != nil {
