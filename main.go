@@ -34,7 +34,7 @@ func main() {
 
 	var cursor int64 = int64(mbox.Messages)
 	logger.Infof("Messages: %d (%d)", cursor, mbox.Messages)
-	//log.Printf("Messages: %d (%d)", cursor, mbox.Messages)
+
 	for i := cursor; i > 0; i = i - 100 {
 		from := uint32(1)
 		if i > 99 {from = uint32(i - 99)}
@@ -44,8 +44,9 @@ func main() {
 
 		logger.Debugf("Last %d messages:", 1 + i - int64(from))
 		for _, msg := range envelopes {
-			models.GetOrCreateEnvelope(msg)
-			//log.Printf(" Envelope:\n [%T] [%s]", envelope, envelope)
+			if !models.EnvelopeExistsByMsgID(msg.MessageId) {
+				models.CreateEnvelope(msg)
+			}
 		}
 	}
 

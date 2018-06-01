@@ -86,103 +86,89 @@ const ESDocEnvelope = `{
     }
 }`
 
-func GetOrCreateEnvelope(imapEnvelope *imap.Envelope) (envelope Envelope, err error) {
-	dbErr := db.Preload("From").Preload("Sender").Preload("ReplyTo").
-		Preload("To").Preload("Cc").Preload("Bcc").Where("message_id=?", imapEnvelope.MessageId).First(&envelope).Error
+func EnvelopeExistsByMsgID(id string) bool {
+	var count int64
+	db.Model(&Envelope{}).Where("message_id = ?", id).Count(&count)
 
-	if dbErr != nil {
-		if dbErr == gorm.ErrRecordNotFound {
-			envelope.Date      = imapEnvelope.Date
-			envelope.InReplyTo = imapEnvelope.InReplyTo
-			envelope.MessageId = imapEnvelope.MessageId
-			envelope.Subject   = imapEnvelope.Subject
+	return count > 0
+}
 
-			for _, imapAddr := range imapEnvelope.From {
-				addr, dbErr := GetOrCreateAddress(imapAddr)
-				if dbErr != nil {
-					err = dbErr
-					return
-				}
-				envelope.From = append(envelope.From, addr)
-			}
+func CreateEnvelope(imapEnvelope *imap.Envelope) (envelope Envelope, err error) {
+	envelope.Date      = imapEnvelope.Date
+	envelope.InReplyTo = imapEnvelope.InReplyTo
+	envelope.MessageId = imapEnvelope.MessageId
+	envelope.Subject   = imapEnvelope.Subject
 
-			for _, imapAddr := range imapEnvelope.Sender {
-				addr, dbErr := GetOrCreateAddress(imapAddr)
-				if dbErr != nil {
-					err = dbErr
-					return
-				}
-				envelope.Sender = append(envelope.Sender, addr)
-			}
-
-			for _, imapAddr := range imapEnvelope.ReplyTo {
-				addr, dbErr := GetOrCreateAddress(imapAddr)
-				if dbErr != nil {
-					err = dbErr
-					return
-				}
-				envelope.ReplyTo = append(envelope.ReplyTo, addr)
-			}
-
-			for _, imapAddr := range imapEnvelope.To {
-				addr, dbErr := GetOrCreateAddress(imapAddr)
-				if dbErr != nil {
-					err = dbErr
-					return
-				}
-				envelope.To = append(envelope.To, addr)
-			}
-
-			for _, imapAddr := range imapEnvelope.Cc {
-				addr, dbErr := GetOrCreateAddress(imapAddr)
-				if dbErr != nil {
-					err = dbErr
-					return
-				}
-				envelope.Cc = append(envelope.Cc, addr)
-			}
-
-			for _, imapAddr := range imapEnvelope.Bcc {
-				addr, dbErr := GetOrCreateAddress(imapAddr)
-				if dbErr != nil {
-					err = dbErr
-					return
-				}
-				envelope.Bcc = append(envelope.Bcc, addr)
-			}
-
-			db.Create(&envelope)
-
-			PutEnvelopeInSearch(&envelope)
-		} else {
+	for _, imapAddr := range imapEnvelope.From {
+		addr, dbErr := GetOrCreateAddress(imapAddr)
+		if dbErr != nil {
 			err = dbErr
+			return
 		}
+		envelope.From = append(envelope.From, addr)
 	}
+
+	for _, imapAddr := range imapEnvelope.Sender {
+		addr, dbErr := GetOrCreateAddress(imapAddr)
+		if dbErr != nil {
+			err = dbErr
+			return
+		}
+		envelope.Sender = append(envelope.Sender, addr)
+	}
+
+	for _, imapAddr := range imapEnvelope.ReplyTo {
+		addr, dbErr := GetOrCreateAddress(imapAddr)
+		if dbErr != nil {
+			err = dbErr
+			return
+		}
+		envelope.ReplyTo = append(envelope.ReplyTo, addr)
+	}
+
+	for _, imapAddr := range imapEnvelope.To {
+		addr, dbErr := GetOrCreateAddress(imapAddr)
+		if dbErr != nil {
+			err = dbErr
+			return
+		}
+		envelope.To = append(envelope.To, addr)
+	}
+
+	for _, imapAddr := range imapEnvelope.Cc {
+		addr, dbErr := GetOrCreateAddress(imapAddr)
+		if dbErr != nil {
+			err = dbErr
+			return
+		}
+		envelope.Cc = append(envelope.Cc, addr)
+	}
+
+	for _, imapAddr := range imapEnvelope.Bcc {
+		addr, dbErr := GetOrCreateAddress(imapAddr)
+		if dbErr != nil {
+			err = dbErr
+			return
+		}
+		envelope.Bcc = append(envelope.Bcc, addr)
+	}
+
+	db.Create(&envelope)
+
+	IndexEnvelope(&envelope)
 
 	return
 }
 
-func PutEnvelopeInSearch(e *Envelope) (err error) {
-	newDoc := esEnvelope{MessageId: e.MessageId, InReplyTo: e.InReplyTo, Date: e.Date, Subject: e.Subject}
+func GetEnvelope(imapEnvelope *imap.Envelope) (envelope Envelope, err error) {
+	err = db.Preload("From").Preload("Sender").Preload("ReplyTo").Preload("To").
+		Preload("Cc").Preload("Bcc").Where("message_id=?", imapEnvelope.MessageId).First(&envelope).Error
 
-	for _, from := range e.From {
-		newDoc.From = append(newDoc.From, fmt.Sprintf("\"%s\" <%s@%s>", from.PersonalName, from.MailboxName, from.HostName))
-	}
-	for _, sender := range e.Sender {
-		newDoc.Sender = append(newDoc.Sender, fmt.Sprintf("\"%s\" <%s@%s>", sender.PersonalName, sender.MailboxName, sender.HostName))
-	}
-	for _, replyTo := range e.ReplyTo {
-		newDoc.ReplyTo = append(newDoc.ReplyTo, fmt.Sprintf("\"%s\" <%s@%s>", replyTo.PersonalName, replyTo.MailboxName, replyTo.HostName))
-	}
-	for _, to := range e.To {
-		newDoc.To = append(newDoc.To, fmt.Sprintf("\"%s\" <%s@%s>", to.PersonalName, to.MailboxName, to.HostName))
-	}
-	for _, cc := range e.Cc {
-		newDoc.Cc = append(newDoc.Cc, fmt.Sprintf("\"%s\" <%s@%s>", cc.PersonalName, cc.MailboxName, cc.HostName))
-	}
-	for _, bcc := range e.Bcc {
-		newDoc.Bcc = append(newDoc.Bcc, fmt.Sprintf("\"%s\" <%s@%s>", bcc.PersonalName, bcc.MailboxName, bcc.HostName))
-	}
+	return
+}
+
+func IndexEnvelope(e *Envelope) (err error) {
+	newDoc := e.ToES()
 
 	put, err := es.Index().
 		Index("mail_envelope").
@@ -199,5 +185,34 @@ func PutEnvelopeInSearch(e *Envelope) (err error) {
 	logger.Debugf("  From: %s, Sender: %s, ReplyTo: %s\n", newDoc.From, newDoc.Sender, newDoc.ReplyTo)
 	logger.Debugf("  To: %s, Cc: %s, Bcc: %s\n", newDoc.To, newDoc.Cc, newDoc.Bcc)
 
+	return
+}
+
+func (e Envelope) ToES() (es *esEnvelope) {
+	es = &esEnvelope{
+		MessageId: e.MessageId,
+		InReplyTo: e.InReplyTo,
+		Date: e.Date,
+		Subject: e.Subject,
+	}
+
+	for _, from := range e.From {
+		es.From = append(es.From, fmt.Sprintf("\"%s\" <%s@%s>", from.PersonalName, from.MailboxName, from.HostName))
+	}
+	for _, sender := range e.Sender {
+		es.Sender = append(es.Sender, fmt.Sprintf("\"%s\" <%s@%s>", sender.PersonalName, sender.MailboxName, sender.HostName))
+	}
+	for _, replyTo := range e.ReplyTo {
+		es.ReplyTo = append(es.ReplyTo, fmt.Sprintf("\"%s\" <%s@%s>", replyTo.PersonalName, replyTo.MailboxName, replyTo.HostName))
+	}
+	for _, to := range e.To {
+		es.To = append(es.To, fmt.Sprintf("\"%s\" <%s@%s>", to.PersonalName, to.MailboxName, to.HostName))
+	}
+	for _, cc := range e.Cc {
+		es.Cc = append(es.Cc, fmt.Sprintf("\"%s\" <%s@%s>", cc.PersonalName, cc.MailboxName, cc.HostName))
+	}
+	for _, bcc := range e.Bcc {
+		es.Bcc = append(es.Bcc, fmt.Sprintf("\"%s\" <%s@%s>", bcc.PersonalName, bcc.MailboxName, bcc.HostName))
+	}
 	return
 }
