@@ -160,9 +160,9 @@ func CreateEnvelope(imapEnvelope *imap.Envelope) (envelope Envelope, err error) 
 	return
 }
 
-func GetEnvelope(imapEnvelope *imap.Envelope) (envelope Envelope, err error) {
+func GetEnvelopeByMsgID(mid string) (envelope Envelope, err error) {
 	err = db.Preload("From").Preload("Sender").Preload("ReplyTo").Preload("To").
-		Preload("Cc").Preload("Bcc").Where("message_id=?", imapEnvelope.MessageId).First(&envelope).Error
+		Preload("Cc").Preload("Bcc").Where("message_id=?", mid).First(&envelope).Error
 
 	return
 }
