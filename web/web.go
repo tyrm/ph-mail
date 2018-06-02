@@ -1,14 +1,27 @@
 package web
 
 import (
-	"../env"
+	"fmt"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
-func AddHttpHandlers() {
-	http.HandleFunc("/event/v1", handleFilterList)
+func StartWebServer() {
+	r := mux.NewRouter()
+	r.HandleFunc("/envelope", handleEnvelope).Methods("GET")
+	r.HandleFunc("/envelope", handleNotImplemented)
+
+	// 404 handler
+	r.PathPrefix("/").HandlerFunc(catchAllHandler)
+
+	http.ListenAndServe("localhost:8080", r)
 }
 
-func (myEnv *env.Env) handleFilterList(response http.ResponseWriter, request *http.Request) {
+func handleEnvelope(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("Content-Type", "application/json")
 
+	fmt.Fprint(response, "{\"cat\":\"meow\"}")
+
+	return
 }
