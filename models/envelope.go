@@ -5,10 +5,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/OrlovEvgeny/go-mcache"
 	"github.com/emersion/go-imap"
 	"github.com/jinzhu/gorm"
 	"golang.org/x/net/context"
 )
+
+var cacheMsgId *gomcache.CacheDriver
 
 // A message.
 type Envelope struct {

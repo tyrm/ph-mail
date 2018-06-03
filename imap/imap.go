@@ -10,24 +10,8 @@ import (
 var imapClient *client.Client
 var logger *loggo.Logger
 
-func GetClient(address string, username string, password string) {
-	newLogger :=  loggo.GetLogger("mail.imap")
-	logger = &newLogger
-
-	newImapClient, err := client.DialTLS(address, nil)
-	if err != nil {
-		logger.Criticalf("Could not connect to imap server: %s", err)
-		panic("PANIC!")
-	}
-	imapClient = newImapClient
-
-	err = imapClient.Login(username, password)
-	if err != nil {
-		logger.Criticalf("Could not login to imap server: %s", err)
-		panic("PANIC!")
-	}
-
-	logger.Infof("Connected to IMAP server [%s] as [%s]", address, username)
+func CloseIMAP() {
+	imapClient.Logout()
 	return
 }
 
@@ -48,6 +32,26 @@ func GetEnvelopes(mbox *imap.MailboxStatus, from uint32, to uint32) (envelopes [
 	}
 
 	err = <-done
+	return
+}
+
+func GetLastEnvelope(mbox *imap.MailboxStatus) (envelope *imap.Envelope, err error) {
+	LastMsgNumber := mbox.Messages
+	LastEnvelope, err := GetEnvelopes(mbox, LastMsgNumber, LastMsgNumber)
+	if err == nil {
+		envelope = LastEnvelope[0]
+	}
+
+	return
+}
+
+func GetMailbox(mailboxName string) (mailbox *imap.MailboxStatus, err error) {
+	client := imapClient
+	mailbox, err = client.Select(mailboxName, false)
+	if err != nil {
+		logger.Errorf("Error getting mailbox: %s", err)
+	}
+
 	return
 }
 
@@ -72,12 +76,23 @@ func GetMailboxes() (mailboxes []*imap.MailboxInfo, err error) {
 	return
 }
 
-func GetMailbox(mailboxName string) (mailbox *imap.MailboxStatus, err error) {
-	client := imapClient
-	mailbox, err = client.Select(mailboxName, false)
+func InitIMAP(address string, username string, password string) {
+	newLogger :=  loggo.GetLogger("mail.imap")
+	logger = &newLogger
+
+	newImapClient, err := client.DialTLS(address, nil)
 	if err != nil {
-		logger.Errorf("Error getting mailbox: %s", err)
+		logger.Criticalf("Could not connect to imap server: %s", err)
+		panic("PANIC!")
+	}
+	imapClient = newImapClient
+
+	err = imapClient.Login(username, password)
+	if err != nil {
+		logger.Criticalf("Could not login to imap server: %s", err)
+		panic("PANIC!")
 	}
 
+	logger.Infof("Connected to IMAP server [%s] as [%s]", address, username)
 	return
 }
