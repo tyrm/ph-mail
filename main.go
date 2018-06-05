@@ -17,7 +17,7 @@ import (
 var logger *loggo.Logger
 
 func main() {
-	loggo.ConfigureLoggers("<root>=DEBUG")
+	loggo.ConfigureLoggers("<root>=TRACE")
 	newLogger :=  loggo.GetLogger("mail")
 	logger = &newLogger
 

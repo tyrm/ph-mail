@@ -57,10 +57,10 @@ func InitDB(connectionString string, esHost string) {
 		return "mail_" + defaultTableName;
 	}
 
-	db.AutoMigrate(&Address{}, &Envelope{})
+	db.AutoMigrate(&Account{}, &Address{}, &Envelope{})
 	// Create Index to Speed searching for addresses
 	db.Model(&Address{}).AddIndex("idx_host_name_mailbox_name", "lower(host_name)", "lower(mailbox_name)", "deleted_at")
-	db.Model(&Envelope{}).AddIndex("idx_message_id", "message_id", "deleted_at")
+	db.Model(&Envelope{}).AddUniqueIndex("uidx_account_id_uid", "account_id", "uid")
 
 	logger.Infof("Connected to %s database", dialect)
 

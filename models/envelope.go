@@ -17,6 +17,10 @@ var cacheMsgId *gomcache.CacheDriver
 type Envelope struct {
 	gorm.Model
 
+	Account   *Account
+	AccountID uint      `gorm:"not null"`
+	Uid       uint32    `gorm:"not null"`
+
 	MessageId string    `gorm:"unique;index;not null"`
 	InReplyTo string
 	Date      time.Time
@@ -96,13 +100,15 @@ func EnvelopeExistsByMsgID(id string) bool {
 	return count > 0
 }
 
-func CreateEnvelope(imapEnvelope *imap.Envelope) (envelope Envelope, err error) {
-	envelope.Date      = imapEnvelope.Date
-	envelope.InReplyTo = imapEnvelope.InReplyTo
-	envelope.MessageId = imapEnvelope.MessageId
-	envelope.Subject   = imapEnvelope.Subject
+func CreateEnvelope(imapMessage *imap.Message) (envelope Envelope, err error) {
+	envelope.Uid       = imapMessage.Uid
 
-	for _, imapAddr := range imapEnvelope.From {
+	envelope.Date      = imapMessage.Envelope.Date
+	envelope.InReplyTo = imapMessage.Envelope.InReplyTo
+	envelope.MessageId = imapMessage.Envelope.MessageId
+	envelope.Subject   = imapMessage.Envelope.Subject
+
+	for _, imapAddr := range imapMessage.Envelope.From {
 		addr, dbErr := GetOrCreateAddress(imapAddr)
 		if dbErr != nil {
 			err = dbErr
@@ -111,7 +117,7 @@ func CreateEnvelope(imapEnvelope *imap.Envelope) (envelope Envelope, err error) 
 		envelope.From = append(envelope.From, addr)
 	}
 
-	for _, imapAddr := range imapEnvelope.Sender {
+	for _, imapAddr := range imapMessage.Envelope.Sender {
 		addr, dbErr := GetOrCreateAddress(imapAddr)
 		if dbErr != nil {
 			err = dbErr
@@ -120,7 +126,7 @@ func CreateEnvelope(imapEnvelope *imap.Envelope) (envelope Envelope, err error) 
 		envelope.Sender = append(envelope.Sender, addr)
 	}
 
-	for _, imapAddr := range imapEnvelope.ReplyTo {
+	for _, imapAddr := range imapMessage.Envelope.ReplyTo {
 		addr, dbErr := GetOrCreateAddress(imapAddr)
 		if dbErr != nil {
 			err = dbErr
@@ -129,7 +135,7 @@ func CreateEnvelope(imapEnvelope *imap.Envelope) (envelope Envelope, err error) 
 		envelope.ReplyTo = append(envelope.ReplyTo, addr)
 	}
 
-	for _, imapAddr := range imapEnvelope.To {
+	for _, imapAddr := range imapMessage.Envelope.To {
 		addr, dbErr := GetOrCreateAddress(imapAddr)
 		if dbErr != nil {
 			err = dbErr
@@ -138,7 +144,7 @@ func CreateEnvelope(imapEnvelope *imap.Envelope) (envelope Envelope, err error) 
 		envelope.To = append(envelope.To, addr)
 	}
 
-	for _, imapAddr := range imapEnvelope.Cc {
+	for _, imapAddr := range imapMessage.Envelope.Cc {
 		addr, dbErr := GetOrCreateAddress(imapAddr)
 		if dbErr != nil {
 			err = dbErr
@@ -147,7 +153,7 @@ func CreateEnvelope(imapEnvelope *imap.Envelope) (envelope Envelope, err error) 
 		envelope.Cc = append(envelope.Cc, addr)
 	}
 
-	for _, imapAddr := range imapEnvelope.Bcc {
+	for _, imapAddr := range imapMessage.Envelope.Bcc {
 		addr, dbErr := GetOrCreateAddress(imapAddr)
 		if dbErr != nil {
 			err = dbErr
@@ -184,9 +190,6 @@ func IndexEnvelope(e *Envelope) (err error) {
 		return
 	}
 	logger.Debugf("Indexed envelope %s to index %s, type %s\n", put.Id, put.Index, put.Type)
-	logger.Debugf("  Subject: %s\n", newDoc.Subject)
-	logger.Debugf("  From: %s, Sender: %s, ReplyTo: %s\n", newDoc.From, newDoc.Sender, newDoc.ReplyTo)
-	logger.Debugf("  To: %s, Cc: %s, Bcc: %s\n", newDoc.To, newDoc.Cc, newDoc.Bcc)
 
 	return
 }

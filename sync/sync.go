@@ -25,16 +25,17 @@ func StartSyncer() {
 				return
 			}
 
-			LastEnvelope, err := imap.GetLastEnvelope(mbox)
+			LastMessage, err := imap.GetLastMessage(mbox)
 			if err != nil {
 				logger.Errorf("Could not get envelope: %s", err)
 				return
 			}
+			imap.TraceEnvelope(LastMessage)
 
-			if models.EnvelopeExistsByMsgID(LastEnvelope.MessageId) {
-				logger.Debugf("Envelope %s seen before.", LastEnvelope.MessageId)
+			if models.EnvelopeExistsByMsgID(LastMessage.Envelope.MessageId) {
+				logger.Debugf("Envelope %s seen before.", LastMessage.Envelope.MessageId)
 			} else {
-				logger.Debugf("New envelope %s. Starting Sync.", LastEnvelope.MessageId)
+				logger.Debugf("New envelope %s. Starting Sync.", LastMessage.Envelope.MessageId)
 				SyncRecentEnvelopes()
 			}
 		}
@@ -61,11 +62,11 @@ func SyncAllEnvelopes() {
 			if i > 99 {from = uint32(i - 99)}
 
 			logger.Debugf("Range: %d-%d (%d)", i, from, 1 + i - int64(from))
-			envelopes, _ := imap.GetEnvelopes(mbox, from, uint32(i))
+			envelopes, _ := imap.GetMessages(mbox, from, uint32(i))
 
 			logger.Debugf("Last %d messages:", 1 + i - int64(from))
 			for _, msg := range envelopes {
-				if !models.EnvelopeExistsByMsgID(msg.MessageId) {
+				if !models.EnvelopeExistsByMsgID(msg.Envelope.MessageId) {
 					models.CreateEnvelope(msg)
 				}
 			}
@@ -96,13 +97,13 @@ func SyncRecentEnvelopes() {
 			if i > 19 {from = uint32(i - 19)}
 
 			logger.Debugf("Range: %d-%d (%d)", i, from, 1 + i - int64(from))
-			envelopes, _ := imap.GetEnvelopes(mbox, from, uint32(i))
+			envelopes, _ := imap.GetMessages(mbox, from, uint32(i))
 
 			logger.Debugf("Last %d messages:", 1 + i - int64(from))
 
 			var foundNew = false
 			for _, msg := range envelopes {
-				if !models.EnvelopeExistsByMsgID(msg.MessageId) {
+				if !models.EnvelopeExistsByMsgID(msg.Envelope.MessageId) {
 					foundNew = true
 					models.CreateEnvelope(msg)
 				}

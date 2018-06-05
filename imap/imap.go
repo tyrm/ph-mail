@@ -1,10 +1,9 @@
 package imap
 
 import (
-	"github.com/juju/loggo"
-
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
+	"github.com/juju/loggo"
 )
 
 var imapClient *client.Client
@@ -15,7 +14,16 @@ func CloseIMAP() {
 	return
 }
 
-func GetEnvelopes(mbox *imap.MailboxStatus, from uint32, to uint32) (envelopes []*imap.Envelope, err error) {
+func TraceEnvelope(m *imap.Message) {
+	msg := "Envelope Object:\nSeqNum: %v\nItems: %v\nEnvelope: %v\nBodyStructure: %v\nFlags: %v\nInternalDate: %v\nSize: %v\nUid: %v\nBody: %v"
+	logger.Tracef(msg, m.SeqNum, m.Items, m.Envelope, m.BodyStructure, m.Flags, m.InternalDate, m.Size, m.Uid, m.Body)
+}
+
+func GetBodies(msg *imap.Message) {
+
+}
+
+func GetMessages(mbox *imap.MailboxStatus, from uint32, to uint32) (messages []*imap.Message, err error) {
 	client := imapClient
 
 	seqset := new(imap.SeqSet)
@@ -24,22 +32,22 @@ func GetEnvelopes(mbox *imap.MailboxStatus, from uint32, to uint32) (envelopes [
 	messageChannel := make(chan *imap.Message, 10)
 	done := make(chan error, 1)
 	go func() {
-		done <- client.Fetch(seqset, []imap.FetchItem{imap.FetchEnvelope}, messageChannel)
+		done <- client.Fetch(seqset, []imap.FetchItem{imap.FetchEnvelope, imap.FetchUid, imap.FetchFlags}, messageChannel)
 	}()
 
 	for msg := range messageChannel {
-		envelopes = append(envelopes, msg.Envelope)
+		messages = append(messages, msg)
 	}
 
 	err = <-done
 	return
 }
 
-func GetLastEnvelope(mbox *imap.MailboxStatus) (envelope *imap.Envelope, err error) {
+func GetLastMessage(mbox *imap.MailboxStatus) (message *imap.Message, err error) {
 	LastMsgNumber := mbox.Messages
-	LastEnvelope, err := GetEnvelopes(mbox, LastMsgNumber, LastMsgNumber)
+	LastEnvelope, err := GetMessages(mbox, LastMsgNumber, LastMsgNumber)
 	if err == nil {
-		envelope = LastEnvelope[0]
+		message = LastEnvelope[0]
 	}
 
 	return
@@ -47,7 +55,7 @@ func GetLastEnvelope(mbox *imap.MailboxStatus) (envelope *imap.Envelope, err err
 
 func GetMailbox(mailboxName string) (mailbox *imap.MailboxStatus, err error) {
 	client := imapClient
-	mailbox, err = client.Select(mailboxName, false)
+	mailbox, err = client.Select(mailboxName, true)
 	if err != nil {
 		logger.Errorf("Error getting mailbox: %s", err)
 	}
